@@ -43,6 +43,7 @@ class GMailHandler (ContentHandler):
             self.issued = self.issued + data.encode('ascii', 'ignore')
          
     def startElement(self, tag, attrs):
+        print tag
         if tag == "entry":
             self.__inItem = True
         if tag == "issued" and self.__inItem:

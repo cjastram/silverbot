@@ -5,7 +5,7 @@ then
     pid=`cat run.pid`
     if ps -p "$pid" > /dev/null
     then
-        echo "running"
+        # Just exit quietly if loop is still running
         exit 0
     fi
 fi

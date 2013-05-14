@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/bin/bash
 #
 # This file is part of Silverbot.
 #
@@ -22,3 +22,5 @@
 # 3) TWB:
 #      Place offset asks
 #      Place supporting bids
+
+(cd price-tracker && sh run.sh &)

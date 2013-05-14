@@ -71,6 +71,8 @@ except IOError:
 dateStamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 dataset[dateStamp] = quote
 
+print quote
+
 # Any error here, we want to be fatal
 f = open(filename, "w")
 yaml.dump(dataset, f, width=200)

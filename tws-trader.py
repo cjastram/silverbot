@@ -16,11 +16,13 @@ import datetime
 import re
 import string
 import sys
+import time
 import urllib
 import yaml
 
 ORDERS = []
 EXECUTIONS = {}
+global SNOOZE
 
 class DataHandler:
     def loadOffsetExecutions(self):
@@ -39,6 +41,8 @@ class DataHandler:
         yaml.dump(executions, f, default_flow_style=False)
         
 class Parameters:
+    bid = 0
+    ask = 0
     def spread(self):
         f = open('parameters.yaml', 'r')
         temp = yaml.safe_load(f)
@@ -57,33 +61,41 @@ class Parameters:
     def symbol(self):
         return "SLV"
     def qty(self):
-        return 12
+        f = open('parameters.yaml', 'r')
+        temp = yaml.safe_load(f)
+        f.close()
+        return int(temp["qty"])
     def ceiling(self):
-        data = []
-        url = 'http://finance.yahoo.com/d/quotes.csv?s='
-        for s in 'slv'.split():
-            url += s+"+"
-        url = url[0:-1]
-        url += "&f=sb3b2l1l"
-        f = urllib.urlopen(url,proxies = {})
-        rows = f.readlines()
-        for r in rows:
-            values = [x for x in r.split(',')]
-            symbol = values[0][1:-1]
-            bid = float(values[1])
-            ask = float(values[2])
-            last = float(values[3])
-            data.append({"symbol":symbol,"bid":bid,"ask":ask,"last":last,"time":values[4]})
-        #return data[0] # might change this for multi-symbol support, eventually
+        #data = []
+        #url = 'http://finance.yahoo.com/d/quotes.csv?s='
+        #for s in 'slv'.split():
+        #    url += s+"+"
+        #url = url[0:-1]
+        #url += "&f=sb3b2l1l"
+        #f = urllib.urlopen(url,proxies = {})
+        #rows = f.readlines()
+        #for r in rows:
+        #    values = [x for x in r.split(',')]
+        #    symbol = values[0][1:-1]
+        #    bid = float(values[1])
+        #    ask = float(values[2])
+        #    last = float(values[3])
+        #    data.append({"symbol":symbol,"bid":bid,"ask":ask,"last":last,"time":values[4]})
+        ##return data[0] # might change this for multi-symbol support, eventually
+        #
+        ## Market sell price is literal ceiling
+        #ceiling = data[0]["ask"]
 
-        # Market sell price is literal ceiling
-        ceiling = data[0]["ask"]
+        if self.bid <= 0:
+            return 0
+        else:
+            ceiling = self.bid
 
-        # Gap lower so market has to drop before we buy anything
-        gap = self.spread() * 0.90
-        ceiling = ceiling - gap
+            # Gap lower so market has to drop before we buy anything
+            gap = self.spread() * 0.90
+            ceiling = ceiling - gap
 
-        return ceiling
+            return ceiling
 
 dataHandler = DataHandler()
 parameters = Parameters()
@@ -92,10 +104,26 @@ def my_account_handler(msg):
     print msg
 
 def my_tick_handler(msg):
-    print msg
+    global parameters
+    if hasattr(msg, "price"):
+        # 1 = bid
+        # 2 = ask
+        # 4 = last
+        # 6 = high
+        # 7 = low
+        # 9 = close
+        if msg.field == 2:
+            print "Market Ask: %f" % msg.price
+            if msg.price > parameters.ask:
+                insertBids()
+            parameters.ask = msg.price
+        elif msg.field == 1:
+            print "Market Bid: %f" % msg.price
+            parameters.bid = msg.price
 
 def my_openorder_handler(msg):
     global ORDERS
+    global SNOOZE
     orderId = msg.orderId
     orderState = msg.orderState
     order = {}
@@ -104,7 +132,9 @@ def my_openorder_handler(msg):
     order["qty"] = msg.order.m_totalQuantity
     order["price"] = msg.order.m_lmtPrice
     order["action"] = msg.order.m_action
+    print "--> Open order: %s" % order
     ORDERS.append(order)
+    SNOOZE = time.time() + 0.5
 
 def execDetails(msg):
     #global EXECUTIONS
@@ -124,22 +154,28 @@ def execDetails(msg):
     time = re.split(':', dateblocks[1])
     dt = datetime.datetime(year, month, day, int(time[0]), int(time[1]), int(time[2]))
     order["time"] = dt
-    orderId = msg.orderId
+    execId = msg.execution.m_execId
+    order["execId"] = execId
 
-    if order["side"] == "BOT":
-        executions = dataHandler.loadOffsetExecutions()
-        if not orderId in executions:
-            executions[orderId] = order
+    print "--> Executed order: %s" % order
 
+    executions = dataHandler.loadOffsetExecutions()
+    if not execId in executions:
+        executions[execId] = order
+
+        if order["side"] == "BOT":
             spread = parameters.spread()
             qty = order["qty"]
             symbol = parameters.symbol()
             price = order["price"] + spread
             newOrder = make_order(qty, price, 'SELL')
             newContract = make_contract(symbol)
-            print "--> execDetails: %i shares bought at %f (#%s), selling at %f" % (qty, order["price"], orderId, price)
+            print "--> execDetails: %i shares bought at %f (#%s), selling at %f" % (qty, order["price"], order["orderId"], price)
+            print "--> PLACING ASK: qty %i price %i" % (qty, price)
             con.placeOrder(id=next_order_id(), contract=newContract, order=newOrder)
-            dataHandler.saveOffsetExecutions(executions)
+
+        dataHandler.saveOffsetExecutions(executions)
+        
 
 order_ids = [0]
 initialized = 0
@@ -153,7 +189,13 @@ def next_order_id():
     return order_id
 
 def error_handler(msg):
-    print msg
+    if msg.errorCode == 502:
+        print "--> TWS NOT RUNNING OR NOT READY FOR CONNECTION!  EXITING!"
+        sys.exit(1)
+    elif msg.errorCode == 2104:
+        print "--> %s" % msg.errorMsg
+    else:
+        print msg
 
 def gen_tick_id():
     i = randint(100, 10000)
@@ -184,6 +226,31 @@ def make_order(qty, limit_price, action):
     order.m_outsideRth = True
     return order
 
+def insertBids():
+    ### Place buy orders
+    global ORDERS
+    floor = parameters.floor()
+    ceiling = parameters.ceiling()
+    if ceiling == 0:
+        print "--> Can't place bids, ceiling too low!"
+        return
+    step = parameters.step()
+    for order in ORDERS:
+        if order["action"] == "BUY":
+            if order["price"] >= floor:
+                floor = order["price"] + step
+    print "--> Parameters for bidding: %s" % {"floor":floor, "ceiling":ceiling, "step":step}
+    while floor < ceiling:
+        price = floor
+        qty = parameters.qty()
+        symbol = parameters.symbol()
+
+        newOrder = make_order(qty, price, 'BUY')
+        newContract = make_contract(symbol)
+        print "--> PLACING BID: qty %i price %i" % (qty, price)
+        con.placeOrder(id=next_order_id(), contract=newContract, order=newOrder)
+        floor += step
+
 con = None
 
 if __name__ == '__main__':
@@ -198,38 +265,22 @@ if __name__ == '__main__':
     
     while initialized == 0:
         sleep(0.1)
-    print "-->Initialization complete!"
+    print "--> Initialization complete!"
 
+
+    ##con.reqAccountUpdates(1, '')
+    print "-----"
+    ##con.reqAllOpenOrders()
+    ticker_id = gen_tick_id()
+    contract = make_contract('SLV')
+    con.reqMktData(ticker_id, contract, [], False)
+    ##con.cancelMktData(ticker_id)
+    
     ### Place sell orders
     exFilter = ExecutionFilter()
     con.reqExecutions(exFilter)
 
-    ### Place buy orders
-    floor = parameters.floor()
-    ceiling = parameters.ceiling()
-    step = parameters.step()
-    for order in ORDERS:
-        if order["action"] == "BUY":
-            if order["price"] > floor:
-                floor = order["price"] + step
-    while floor < ceiling:
-        price = floor
-        qty = parameters.qty()
-        symbol = parameters.symbol()
-
-        newOrder = make_order(qty, price, 'BUY')
-        newContract = make_contract(symbol)
-        print "--> main: placing bid for %i shares at %f" % (qty, price)
-        con.placeOrder(id=next_order_id(), contract=newContract, order=newOrder)
-        floor += step
-
-
-    ##con.reqAccountUpdates(1, '')
-    ##print "-----"
-    ##con.reqAllOpenOrders()
-    ##ticker_id = gen_tick_id()
-    ##con.reqMktData(ticker_id, contract, [], True)
-    ##con.cancelMktData(ticker_id)
+    #insertBids()
 
     #order = make_order(1, 25, 'BUY')
     #contract = make_contract('SLV')
@@ -238,4 +289,17 @@ if __name__ == '__main__':
     # Order confirmation feed
     #https://mail.google.com/mail/feed/atom/$-in-interactivebrokers/
 
-    sleep(5)
+    print "--> Looping on console..."
+    while True:
+        line = sys.stdin.readline()[0:-1]
+        if line == "quit" or line == "exit":
+            print "--> Exiting..."
+            sys.exit()
+        elif line == "autobuy":
+            ORDERS = []
+            SNOOZE = time.time() + 10
+            con.reqAllOpenOrders()
+            while time.time() < SNOOZE:
+                sleep(0.1)
+            insertBids()
+            

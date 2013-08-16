@@ -103,8 +103,10 @@ parameters = Parameters()
 def my_account_handler(msg):
     print msg
 
+lastWriteSize = 0
 def my_tick_handler(msg):
     global parameters
+    global lastWriteSize
     if hasattr(msg, "price"):
         # 1 = bid
         # 2 = ask
@@ -112,14 +114,39 @@ def my_tick_handler(msg):
         # 6 = high
         # 7 = low
         # 9 = close
+
+        priceLog = {}
+        date = datetime.date.today()
+        priceLogFile = "/tmp/%s.yaml" % date.strftime("%Y-%m-%d")
+        try:
+            f = open(priceLogFile, 'r')
+            temp = yaml.safe_load(f)
+            f.close()
+            priceLog = temp
+        except Exception as e:
+            pass
+
+        side = ""
         if msg.field == 2:
-            print "Market Ask: %f" % msg.price
+            sys.stdout.write("a%0.2f " % msg.price)
             if msg.price > parameters.ask:
                 insertBids()
             parameters.ask = msg.price
+            side = "ask"
         elif msg.field == 1:
-            print "Market Bid: %f" % msg.price
+            sys.stdout.write("b%0.2f " % msg.price)
             parameters.bid = msg.price
+            side = "bid"
+        if side != "":
+            priceLog[time.time()] = [side, msg.price]
+
+            sys.stdout.flush()
+            if len(priceLog) % 10 == 0:
+                print " "
+            
+            f = open(priceLogFile, "w" )
+            yaml.dump(priceLog, f) #, default_flow_style=False)
+            f.close()
 
 def my_openorder_handler(msg):
     global ORDERS
@@ -239,7 +266,7 @@ def insertBids():
         if order["action"] == "BUY":
             if order["price"] >= floor:
                 floor = order["price"] + step
-    print "--> Parameters for bidding: %s" % {"floor":floor, "ceiling":ceiling, "step":step}
+    #print "--> Parameters for bidding: %s" % {"floor":floor, "ceiling":ceiling, "step":step}
     while floor < ceiling:
         price = floor
         qty = parameters.qty()

@@ -1,2 +1,6 @@
 offsetExecutions.yaml
+table.txt
+vars.sh
+tws.jnlp
+*.log
 *.pyc

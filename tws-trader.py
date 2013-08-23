@@ -160,6 +160,7 @@ def my_openorder_handler(msg):
     order["price"] = msg.order.m_lmtPrice
     order["action"] = msg.order.m_action
     print "--> Open order: %s" % order
+    print "Status: %s Warning: %s" % (orderState.m_status, orderState.m_warningText)
     ORDERS.append(order)
     SNOOZE = time.time() + 0.5
 
@@ -263,6 +264,7 @@ def insertBids():
         return
     step = parameters.step()
     for order in ORDERS:
+    	#print order
         if order["action"] == "BUY":
             if order["price"] >= floor:
                 floor = order["price"] + step
@@ -274,7 +276,8 @@ def insertBids():
 
         newOrder = make_order(qty, price, 'BUY')
         newContract = make_contract(symbol)
-        print "--> PLACING BID: qty %i price %i" % (qty, price)
+        print "--> PLACING BID: qty %i price %0.2f" % (qty, price)
+	#print "--> NO ORDER PLACED";
         con.placeOrder(id=next_order_id(), contract=newContract, order=newOrder)
         floor += step
 
@@ -329,4 +332,16 @@ if __name__ == '__main__':
             while time.time() < SNOOZE:
                 sleep(0.1)
             insertBids()
-            
+        elif re.match("^buy [0-9]+@[0-9.]+$", line):
+            a = line.split(" ")
+            b = a[1].split("@")
+            qty = int(b[0])
+            price = float(b[1])
+            print "Requested to purchase  %i at %f..." % (qty, price)
+        
+            symbol = parameters.symbol()
+            newOrder = make_order(qty, price, 'BUY')
+            newContract = make_contract(symbol)
+            print "--> PLACING BID: qty %i price %0.2f" % (qty, price)
+            con.placeOrder(id=next_order_id(), contract=newContract, order=newOrder)
+

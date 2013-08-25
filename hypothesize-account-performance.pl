@@ -10,9 +10,10 @@ sub new {
     $self->{"_value"} = shift;
     $self->{"_bids"} = [];
     $self->{"_asks"} = [];
-    $self->{"_bidSize"} = 50;
-    $self->{"_interval"} = 0.10;
-    $self->{"_spread"} = 0.20;
+    $self->{"_unsold"} = {};
+    $self->{"_bidSize"} = 40;
+    $self->{"_interval"} = 0.50;
+    $self->{"_spread"} = 0.50;
     
     bless $self, $class;
 
@@ -77,10 +78,10 @@ sub insertBids {
     
     my $capacity = $self->getValue();
    
-    my $top = 0;
+    my $top = $ask;
     my $bottom = $ask;
     foreach my $bid ($self->getBids()) {
-        if( $top == 0 ) {
+        if( $top == $ask ) {
             $top = $bid;
             $bottom = $bid;
         } elsif ($bid > $top) {
@@ -95,15 +96,21 @@ sub insertBids {
     my $ceiling = $top;
     $ceiling += $interval;
     while ($ceiling < $ask) {
-        $self->bid($ceiling);
+        if ( not $self->{_unsold}->{"b".sprintf("%0.2f",$ceiling)}) {
+            $self->bid($ceiling);
+            $capacity -= $bidSize * $ceiling;
+        }
         $ceiling += $interval;
-        $capacity -= $bidSize * $ceiling;
     }
 
     # Fill in low bids, to capacity
     # TODO: Cancel bids that exceed capacity
     while ($capacity > 0) {
         $bottom -= $interval;
+        if ($bottom < 5)
+        {
+            last;
+        }
         my $cost = $bidSize * $bottom;
         if ($capacity > $cost) {
             $self->bid($bottom);
@@ -115,34 +122,67 @@ sub insertBids {
 }
 sub tick {
     my ($self, $side, $price) = @_;
+    #print "\n--> TICK: $side/$price\n";
     my $bidSize = $self->{_bidSize};
     if ($side eq "ask") {
         $self->insertBids($price);
         foreach my $bid ($self->getBids()) {
             if ($price < $bid) {
-                print "Executed bid at $bid...\n";
+                #print "Executed bid at $bid...\n";
                 $self->cancelBid($bid);
-                $self->setValue($self->getValue() - ($bid*$bidSize));
-                $self->ask($bid+$self->{_interval});
+                my $cost = $bid*$bidSize;
+                $cost++;
+                $self->setValue($self->getValue() - $cost);
+
+                my $askPrice = $bid+$self->{_interval};
+                $self->{_unsold}->{"b".sprintf("%0.2f", $bid)} = sprintf("%0.2f", $askPrice);
+                $self->{_unsold}->{"a".sprintf("%0.2f", $askPrice)} = sprintf("%0.2f", $bid);
+                
+                $self->ask($askPrice);
             }
         }
     } elsif ($side eq "bid") {
         foreach my $ask ($self->getAsks()) {
             if ($price > $ask) {
-                print "Executed ask at $ask...\n";
-                $self->setValue($self->getValue() + ($ask*$bidSize));
+                #print "Executed ask at $ask...\n";
                 $self->cancelAsk($ask);
+                my $cost = $ask*$bidSize;
+                $cost++;
+                $self->setValue($self->getValue() + $cost);
+
+                my $bidPrice = $self->{_unsold}->{"a".sprintf("%0.2f",$ask)};
+                delete $self->{_unsold}->{"a".sprintf("%0.2f",$ask)};
+                delete $self->{_unsold}->{"b".sprintf("%0.2f",$bidPrice)};
             }
         }
     }
 }
+sub close {
+    my $self = shift;
+    my $bidSize = $self->{_bidSize};
+    foreach my $ask ($self->getAsks()) {
+        $self->cancelAsk($ask);
+        my $cost = $ask*$bidSize;
+        $cost++;
+        $self->setValue($self->getValue() + $cost);
+                
+        my $bidPrice = $self->{_unsold}->{"a".sprintf("%0.2f",$ask)};
+        delete $self->{_unsold}->{"a".sprintf("%0.2f",$ask)};
+        delete $self->{_unsold}->{"b".sprintf("%0.2f",$bidPrice)};
+    }
+    print "Final value: " . $self->getValue() . "\n";
+}
+
+my @data = ();
+while (<>) {
+    push @data, $_;
+}
 
 my $account = new Account(10000);
-
-while (<>) {
+foreach (@data) {
     m/^([\d]+)\..*: \[(bid|ask), ([\d.]+)\]/;
     my ($timestamp, $side, $price) = ($1, $2, $3);
     $account->tick( $side, $price );
 }
+$account->close();
 
-print $account->getValue() . "\n";

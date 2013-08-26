@@ -17,7 +17,7 @@
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from lib import orders, data
+from lib import orders, data, settings
 
 from ib.ext.Contract import Contract
 from ib.ext.EWrapper import EWrapper
@@ -53,46 +53,6 @@ def gen_tick_id():
         yield i
         i += 1
 gen_tick_id = gen_tick_id().next
-
-class Parameters:
-    bid = 0
-    ask = 0
-    def spread(self):
-        f = open('parameters.yaml', 'r')
-        temp = yaml.safe_load(f)
-        f.close()
-        return temp["spread"]
-    def floor(self):
-        f = open('parameters.yaml', 'r')
-        temp = yaml.safe_load(f)
-        f.close()
-        return float(temp["floor"])
-    def step(self):
-        f = open('parameters.yaml', 'r')
-        temp = yaml.safe_load(f)
-        f.close()
-        return float(temp["step"])
-    def symbol(self):
-        return "SLV"
-    def qty(self):
-        f = open('parameters.yaml', 'r')
-        temp = yaml.safe_load(f)
-        f.close()
-        return int(temp["qty"])
-    def ceiling(self):
-
-        if self.bid <= 0:
-            return 0
-        else:
-            ceiling = self.bid
-
-            # Gap lower so market has to drop before we buy anything
-            gap = self.spread() * 0.90
-            ceiling = ceiling - gap
-
-            return ceiling
-    def tickers(self):
-        return {1: "SLV"}
 
 class ReferenceWrapper(EWrapper):
     orders = None
@@ -203,77 +163,58 @@ class ReferenceWrapper(EWrapper):
     def marketDataType(self, reqId, marketDataType): showmessage('marketDataType', vars()) 
     def commissionReport(self, commissionReport): showmessage('commissionReport', vars()) 
 
-allMethods = []
-def ref(method):
-    allMethods.append(method.__name__)
-    return method
-
 class ReferenceApp:
     parameters = None
     def __init__(self, host='localhost', port=7496, clientId=0):
         self.host = host
         self.port = port
         self.clientId = clientId
-        self.parameters = Parameters()
+        self.parameters = settings.TradeParameters()
         self.wrapper = ReferenceWrapper(self.parameters)
         self.connection = EClientSocket(self.wrapper)
         
-    @ref
     def eConnect(self):
         self.connection.eConnect(self.host, self.port, self.clientId)
 
-    @ref
     def reqAccountUpdates(self):
         self.connection.reqAccountUpdates(1, '')
 
-    @ref
     def reqOpenOrders(self):
         self.connection.reqOpenOrders()
 
-    @ref
     def reqExecutions(self):
         filt = ExecutionFilter()
         self.connection.reqExecutions(filt)
 
-    @ref
     def reqIds(self):
         self.connection.reqIds(10)
 
-    @ref
     def reqNewsBulletins(self):
         self.connection.reqNewsBulletins(1)
 
-    @ref
     def cancelNewsBulletins(self):
         self.connection.cancelNewsBulletins()
 
-    @ref
     def setServerLogLevel(self):
         self.connection.setServerLogLevel(3)
 
-    @ref
     def reqAutoOpenOrders(self):
         self.connection.reqAutoOpenOrders(1)
 
-    @ref
     def reqAllOpenOrders(self):
         self.connection.reqAllOpenOrders()
 
-    @ref
     def reqManagedAccts(self):
         self.connection.reqManagedAccts()
 
-    @ref
     def requestFA(self):
         self.connection.requestFA(1)
 
-    @ref
     def reqMktData(self):
         for tick_id, symbol in self.parameters.tickers().iteritems():
             contract = app.wrapper.makeContract(symbol)
             self.connection.reqMktData(tick_id, contract, [], False)
 
-    @ref
     def reqHistoricalData(self):
         contract = Contract()
         contract.m_symbol = 'QQQQ'
@@ -290,7 +231,6 @@ class ReferenceApp:
             useRTH=0,
             formatDate=1)
 
-    @ref
     def eDisconnect(self):
         sleep(5)
         self.connection.eDisconnect()
@@ -308,23 +248,4 @@ if __name__ == '__main__':
         if line == "quit" or line == "exit":
             print "--> Exiting..."
             sys.exit()
-
-    #if not methods:
-        #methods = ['eConnect', 'eDisconnect', ]
-    #elif methods == ['all']:
-        #methods = allMethods
-    #if 'eConnect' not in methods:
-        #methods.insert(0, 'eConnect')
-    #if 'eDisconnect' not in methods:
-        #methods.append('eDisconnect')
-#
-    #print '### calling functions:', str.join(', ', methods)
-    #for mname in methods:
-        #call = getattr(app, mname, None)
-        #if call is None:
-            #print '### warning: no call %s' % (mname, )
-        #else:
-            #print '## calling', call.im_func.func_name
-            #call()
-            #print '## called', call.im_func.func_name
 

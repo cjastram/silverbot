@@ -6,19 +6,23 @@ package Account;
 sub new {
     my $self = ();
     my $class = shift;
+    my $args = shift;
 
-    $self->{"_value"} = shift;
+    $self->{"_value"} = 20000;
     $self->{"_bids"} = [];
     $self->{"_asks"} = [];
     $self->{"_unsold"} = {};
     $self->{"_bidSize"} = 40;
     $self->{"_interval"} = 0.50;
     $self->{"_spread"} = 0.50;
+    $self->{"_fee"} = 1;
+   
+    my %args = %{$args};
+    foreach my $key (keys %args) {
+        $self->{"_$key"} = $args{$key};
+    }
     
     bless $self, $class;
-
-    print "Starting value: $self->{_value}\n";
-
     return $self;
 }
 sub getValue {
@@ -27,6 +31,7 @@ sub getValue {
 }
 sub setValue {
     my ($self, $value) = @_;
+    #if ($value < 0) { print "."; }
     $self->{_value} = $value if defined($value);
     return $self->{_value};
 }
@@ -131,10 +136,10 @@ sub tick {
                 #print "Executed bid at $bid...\n";
                 $self->cancelBid($bid);
                 my $cost = $bid*$bidSize;
-                $cost++;
                 $self->setValue($self->getValue() - $cost);
+                $self->setValue($self->getValue() - $self->{_fee});
 
-                my $askPrice = $bid+$self->{_interval};
+                my $askPrice = $bid+$self->{_spread};
                 $self->{_unsold}->{"b".sprintf("%0.2f", $bid)} = sprintf("%0.2f", $askPrice);
                 $self->{_unsold}->{"a".sprintf("%0.2f", $askPrice)} = sprintf("%0.2f", $bid);
                 
@@ -147,12 +152,14 @@ sub tick {
                 #print "Executed ask at $ask...\n";
                 $self->cancelAsk($ask);
                 my $cost = $ask*$bidSize;
-                $cost++;
                 $self->setValue($self->getValue() + $cost);
+                $self->setValue($self->getValue() - $self->{_fee});
 
                 my $bidPrice = $self->{_unsold}->{"a".sprintf("%0.2f",$ask)};
                 delete $self->{_unsold}->{"a".sprintf("%0.2f",$ask)};
-                delete $self->{_unsold}->{"b".sprintf("%0.2f",$bidPrice)};
+                if ($bidPrice) {
+                    delete $self->{_unsold}->{"b".sprintf("%0.2f",$bidPrice)};
+                }
             }
         }
     }
@@ -163,14 +170,13 @@ sub close {
     foreach my $ask ($self->getAsks()) {
         $self->cancelAsk($ask);
         my $cost = $ask*$bidSize;
-        $cost++;
         $self->setValue($self->getValue() + $cost);
+        $self->setValue($self->getValue() - $self->{_fee});
                 
         my $bidPrice = $self->{_unsold}->{"a".sprintf("%0.2f",$ask)};
         delete $self->{_unsold}->{"a".sprintf("%0.2f",$ask)};
         delete $self->{_unsold}->{"b".sprintf("%0.2f",$bidPrice)};
     }
-    print "Final value: " . $self->getValue() . "\n";
 }
 
 my @data = ();
@@ -178,11 +184,47 @@ while (<>) {
     push @data, $_;
 }
 
-my $account = new Account(10000);
-foreach (@data) {
-    m/^([\d]+)\..*: \[(bid|ask), ([\d.]+)\]/;
-    my ($timestamp, $side, $price) = ($1, $2, $3);
-    $account->tick( $side, $price );
+for (my $i=100; $i<=1000; $i+=100) {
+    my $account = new Account({"value" => 30000, "interval" => 1, "spread" => 1, "bidSize" => $i});
+    foreach (@data) {
+        m/^([\d]+)\..*: \[(bid|ask), ([\d.]+)\]/;
+        my ($timestamp, $side, $price) = ($1, $2, $3);
+        $account->tick( $side, $price );
+    }
+    $account->close();
+    my $closing = $account->getValue();
+    print "$i,$closing\n";
 }
-$account->close();
+
+print "\n";
+
+exit;
+
+for (my $lines=200; $lines<1000; $lines+=100) {
+    print "\n\n";
+    print "Interval,";
+    for (my $bidSize=10; $bidSize<=100; $bidSize+=10) {
+        print "b$bidSize,";
+    }
+    print "\n";
+    for (my $i=0.10; $i<=1; $i+=0.10) {
+        print "i$i,";
+        for (my $bidSize=10; $bidSize<=100; $bidSize+=10) {
+            my $account = new Account({"bidSize" => $bidSize, "interval" => "$i", "spread" => "$i"});
+            my $count = 0;
+            foreach (@data) {
+                m/^([\d]+)\..*: \[(bid|ask), ([\d.]+)\]/;
+                my ($timestamp, $side, $price) = ($1, $2, $3);
+                $account->tick( $side, $price );
+                if (++$count > $lines) {
+                    last;
+                }
+            }
+            $account->close();
+            my $closing = $account->getValue();
+            print "$closing,";
+        }
+        print "\n";
+    }
+}
 

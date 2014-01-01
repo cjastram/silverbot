@@ -117,7 +117,7 @@ def my_tick_handler(msg):
 
         priceLog = {}
         date = datetime.date.today()
-        priceLogFile = "/tmp/%s.yaml" % date.strftime("%Y-%m-%d")
+        priceLogFile = "%s.yaml" % date.strftime("%Y-%m-%d")
         try:
             f = open(priceLogFile, 'r')
             temp = yaml.safe_load(f)

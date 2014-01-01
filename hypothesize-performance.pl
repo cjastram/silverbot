@@ -16,6 +16,7 @@ sub new {
     $self->{"_interval"} = 0.50;
     $self->{"_spread"} = 0.50;
     $self->{"_fee"} = 1;
+    $self->{"_tradeCount"} = 0;
    
     my %args = %{$args};
     foreach my $key (keys %args) {
@@ -24,6 +25,14 @@ sub new {
     
     bless $self, $class;
     return $self;
+}
+sub getTradeCount {
+    my $self = shift;
+    return $self->{_tradeCount};
+}
+sub incrementTradeCount {
+    my $self = shift;
+    return ++$self->{_tradeCount};
 }
 sub getValue {
     my( $self ) = @_;
@@ -134,6 +143,7 @@ sub tick {
         foreach my $bid ($self->getBids()) {
             if ($price < $bid) {
                 #print "Executed bid at $bid...\n";
+                $self->incrementTradeCount();
                 $self->cancelBid($bid);
                 my $cost = $bid*$bidSize;
                 $self->setValue($self->getValue() - $cost);
@@ -184,8 +194,8 @@ while (<>) {
     push @data, $_;
 }
 
-for (my $i=100; $i<=1000; $i+=100) {
-    my $account = new Account({"value" => 30000, "interval" => 1, "spread" => 1, "bidSize" => $i});
+for (my $i=0.1; $i<=1; $i+=0.1) {
+    my $account = new Account({"value" => 30000, "interval" => $i, "spread" => $i, "bidSize" => 30});
     foreach (@data) {
         m/^([\d]+)\..*: \[(bid|ask), ([\d.]+)\]/;
         my ($timestamp, $side, $price) = ($1, $2, $3);
@@ -193,7 +203,8 @@ for (my $i=100; $i<=1000; $i+=100) {
     }
     $account->close();
     my $closing = $account->getValue();
-    print "$i,$closing\n";
+    my $trades = $account->getTradeCount();
+    print "$trades,$i,$closing\n";
 }
 
 print "\n";

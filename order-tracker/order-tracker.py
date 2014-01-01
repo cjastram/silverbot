@@ -43,7 +43,6 @@ class GMailHandler (ContentHandler):
             self.issued = self.issued + data.encode('ascii', 'ignore')
          
     def startElement(self, tag, attrs):
-        print tag
         if tag == "entry":
             self.__inItem = True
         if tag == "issued" and self.__inItem:
@@ -79,5 +78,7 @@ handler = GMailHandler()
 parser = make_parser()
 parser.setContentHandler(handler)
 parser.parse(infile)
-print yaml.dump(handler.entries, default_flow_style=False)
+
+stream = file('orders.yaml', 'w')
+yaml.dump(handler.entries, stream, default_flow_style=False)
 

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<jnlp codebase="http://download2.interactivebrokers.com/java/classes/" href="http://www.interactivebrokers.com/java/classes/tws.jnlp">
+	<information>
+		<title>Trader Workstation</title>
+		<vendor>Interactive Brokers</vendor>
+	    	<homepage href="http://www.interactivebrokers.com"/>
+		<icon height="64" href="tws64x64.jpg" width="64"/>
+		<description>Interactive Brokers Trader Workstation</description>
+	</information>
+	
+	<security>
+		<all-permissions/>
+	</security>
+	
+	<resources>
+		<j2se java-vm-args="-Dsun.java2d.noddraw=true -Dswing.boldMetal=false -Dsun.locale.formatasdefault=true -Xmx768M -XX:MaxPermSize=128M" version="1.7+"/>
+                <j2se java-vm-args="-Dsun.java2d.noddraw=true -Xmx768M -XX:MaxPermSize=128M" version="1.6"/>
+                <j2se java-vm-args="-Dsun.java2d.noddraw=true -Xmx768M -XX:MaxPermSize=128M" version="1.5"/>
+		<jar href="prod/twslaunch.jar"/>
+		<property name="sun.java2d.noddraw" value="true"/>
+		<property name="jnlp.twslaunch.jars" value="prod/jts4launch.jar;total.2012.jar"/> 
+		<property name="jnlp.twslaunch.start" value="prod/twslaunch.jar"/>		
+		<property name="jnlp.gendate" value="Fri Mar  8 09:07:35 2013"/>
+	</resources>
+
+	<application-desc main-class="jclient.Launcher"> 
+		<argument>c:\ibjts</argument>
+		<argument>gw1.ibllc.com:4000</argument>
+	</application-desc>
+</jnlp>

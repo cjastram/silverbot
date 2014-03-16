@@ -43,18 +43,14 @@ class Algorithm:
 
 if __name__ == '__main__':
    s = data.Storage()
+   a = Algorithm(s)
 
-   app = trader.Wrapper(None)
-   #app = trader.App()
-
-   #app.eConnect()
-   #app.reqMktData()
+   #app = trader.Wrapper(None)
    
-   while True:
-      line = sys.stdin.readline()[0:-1]
-      if line == "quit" or line == "exit":
-         print "--> Exiting..."
-         sys.exit()
+   #while True:
+      #line = sys.stdin.readline()[0:-1]
+      #if line == "quit" or line == "exit":
+         #print "--> Exiting..."
+         #sys.exit()
 
 
-#a = Algorithm(s)

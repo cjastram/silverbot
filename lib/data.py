@@ -23,8 +23,73 @@ import yaml
 
 _GDOC = None
 
+class Order(object):
+   schema = [ "id", "side", "price", "qty", "status", "imagined", "requested", "confirmed", "filled", "offset", "cancelled", "parent" ]
+   def __init__(self, row):
+      self._id = row["id"]
+      self._side = row["side"]
+      self._price = row["price"]
+      self._qty = row["qty"]
+      self._status = row["status"]
+      self._imagined = row["imagined"]
+      self._requested = row["requested"]
+      self._confirmed = row["confirmed"]
+      self._filled = row["filled"]
+      self._offset = row["offset"]
+      self._cancelled = row["cancelled"]
+      self._parent = row["parent"]
+
+   @property
+   def id(self):
+      return int(self._id)
+   
+   @property
+   def side(self):
+      return self._side
+
+   @property
+   def price(self):
+      return float(self._price)
+   
+   @property
+   def qty(self):
+      return int(self._qty)
+   
+   @property
+   def status(self):
+      return self._status
+   @status.setter
+   def status(self, value):
+      self._status = value
+      s = Storage()
+      s.update(self)
+      
+   @property
+   def imagined(self): return self._imagined
+   @property
+   def requested(self): return self._requested
+   @property
+   def confirmed(self): return self._confirmed
+   @property
+   def filled(self): return self._filled
+
+   @property
+   def offset(self): 
+      return self._offset
+   @offset.setter
+   def offset(self, value):
+      self._offset = value
+      s = Storage()
+      s.update(self)
+      return self._offset
+
+   @property
+   def cancelled(self): return self._cancelled
+   @property
+   def parent(self): return self._parent
+
 class Storage:
-   schema = None
+   schema = {} # Static variable
    _spreadsheet = None
 
    def __init__(self):
@@ -34,8 +99,6 @@ class Storage:
          auth = yaml.safe_load(f)
          f.close()
 
-         self.schema = {}
-
          gc = gspread.login(auth["gdoc-login"], auth["gdoc-password"])
          spreadsheet = gc.open("Silverbot 2014")
 
@@ -43,8 +106,8 @@ class Storage:
             #"Pairs": [
                #"BidID", "BidDate", "BidQty", "BidPrice", "BidStatus", 
                #"AskID", "AskDate", "AskQty", "AskPrice", "AskStatus"],
-            "Config": [ "Setting", "Value" ],
-            "Book": [ "ID", "Side", "Price", "Qty", "Status", "Imagined", "Requested", "Confirmed", "Filled", "Offset", "Cancelled", "Parent" ],
+            "Config": [ "setting", "value" ],
+            "Book": [ "id", "side", "price", "qty", "status", "imagined", "requested", "confirmed", "filled", "offset", "cancelled", "parent" ],
          }
 
          for title, headers in schema.iteritems():
@@ -79,7 +142,7 @@ class Storage:
 
          # Fetch a cell range
          #cell_list = wks.range('A1:B7')
-         __GDOC = spreadsheet
+         _GDOC = spreadsheet
       self._spreadsheet = _GDOC
 
    def _timestamp(self):
@@ -108,6 +171,47 @@ class Storage:
                   block[headers[i]] = row[i]
             result.append(block)
       return result
+
+   def query(self, criteria):
+      sheet = self._spreadsheet.worksheet("Book")
+      if len(criteria) > 1:
+         raise Exception("Need to implement multi-column selection!")
+
+      result = []
+      for key, value in criteria.iteritems():
+         column = sheet.col_values(self.schema[sheet.title][key])
+         headers = sheet.row_values(1)
+         for i in range(1, len(column)):
+            if column[i] == str(value):
+               row = sheet.row_values(i+1)
+               block = {}
+               for i in range(0, len(headers)):
+                  block[headers[i]] = None
+                  if i < len(row):
+                     block[headers[i]] = row[i]
+               order = Order(block)
+               result.append(order)
+      return result
+
+   def update(self, order):
+      sheet = self._spreadsheet.worksheet("Book")
+
+      # Retrieve old order
+      old = self.query({"id": order.id})
+      if len(old) != 1: 
+         raise Exception("Failed to find single order by ID!")
+      else:
+         old = old[0]
+
+      # Compute order delta
+      update = {}
+      for field in Order.schema:
+         if getattr(old, field) != getattr(order, field):
+            update[field] = getattr(order, field)
+
+      # Update only changed fields
+      for key, value in update.iteritems():
+         sheet.update_cell(order.id, self.schema["Book"][key], value)
 
    def _add(self, sheet, values):
       flat = []
@@ -163,18 +267,18 @@ class Storage:
       print "--> Confirming hypothetical %s order for %i at %0.02f." % (side, qty, price)
       sheet = self._spreadsheet.worksheet("Book")
       data = { 
-         "ID": "%ID%", "Side": side, "Price": price, "Qty": qty,
-         "Status": "Imagined", "Imagined": self._timestamp()
+         "id": "%ID%", "side": side, "price": price, "qty": qty,
+         "status": "imagined", "imagined": self._timestamp()
       }
       recorded = False
-      for row in self._select(sheet, "Status", "Imagined"):
-         if self._equivalent(row["Price"], data["Price"]):
+      for row in self._select(sheet, "status", "imagined"):
+         if self._equivalent(row["price"], data["price"]):
             recorded = True
 
             ### Check and reset quantity if necessary
-            if int(row["Qty"]) != int(data["Qty"]):
-               print "--> Updating quantity for order %s from %s to %s." % (row["ID"], row["Qty"], data["Qty"])
-               sheet.update_cell(row["ID"], self.schema[sheet.title]["Qty"], data["Qty"])
+            if int(row["qty"]) != int(data["qty"]):
+               print "--> Updating quantity for order %s from %s to %s." % (row["id"], row["qty"], data["qty"])
+               sheet.update_cell(row["id"], self.schema[sheet.title]["qty"], data["qty"])
                
             break
       if not recorded:
@@ -186,29 +290,34 @@ class Storage:
       for bid in bids:
          bid_id = self._confirm_hypothetical("bid", bid[0], bid[1])
 
-      for row in self._select(sheet, "Status", "Imagined"):
+      for row in self._select(sheet, "status", "imagined"):
          desired = False
          for bid in bids:
-            if self._equivalent(bid[0], row["Price"]):
+            if self._equivalent(bid[0], row["price"]):
                desired = True
                break
          if not desired:
-            sheet.update_cell(row["ID"], self.schema[sheet.title]["Status"], "Forgotten")
+            sheet.update_cell(row["id"], self.schema[sheet.title]["status"], "Forgotten")
       self._setConfig("Working", "")
 
    def place_offsets(self):
+      print "--> Placing offsets."
       offset = 0.50
       self._setConfig("Working", "Offsets")
-      sheet = self._spreadsheet.worksheet("Book")
-      for row in self._select(sheet, "Status", "Filled"):
+      #sheet = self._spreadsheet.worksheet("Book")
+      for order in self.query({"status": "filled"}):
          side = "ask"
-         price = float(row["Price"]) + offset
-         qty = row["Qty"]
-         data = { 
-            "ID": "%ID%", "Side": side, "Price": price, "Qty": qty,
-            "Status": "Imagined", "Imagined": self._timestamp(), "Parent": row["ID"],
-         }
-         sheet.update_cell(row["ID"], self.schema[sheet.title]["Status"], "Offset")
-         sheet.update_cell(row["ID"], self.schema[sheet.title]["Offset"], self._timestamp())
-         self._add(sheet, data)
+         price = order.price + offset
+         qty = order.qty
+
+         order.status = "offset"
+         order.offset = self._timestamp()
+
+         #data = { 
+            #"id": "%ID%", "side": side, "price": price, "qty": qty,
+            #"status": "imagined", "imagined": self._timestamp(), "parent": row["id"],
+         #}
+         #sheet.update_cell(row["id"], self.schema[sheet.title]["status"], "offset")
+         #sheet.update_cell(row["id"], self.schema[sheet.title]["offset"], self._timestamp())
+         #self._add(sheet, data)
 

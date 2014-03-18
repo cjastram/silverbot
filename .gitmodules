@@ -1,3 +1,6 @@
 [submodule "gspread"]
 	path = gspread
 	url = https://github.com/burnash/gspread
+[submodule "IbPy"]
+	path = IbPy
+	url = https://github.com/blampe/IbPy

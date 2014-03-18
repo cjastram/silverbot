@@ -300,24 +300,4 @@ class Storage:
             sheet.update_cell(row["id"], self.schema[sheet.title]["status"], "Forgotten")
       self._setConfig("Working", "")
 
-   def place_offsets(self):
-      print "--> Placing offsets."
-      offset = 0.50
-      self._setConfig("Working", "Offsets")
-      #sheet = self._spreadsheet.worksheet("Book")
-      for order in self.query({"status": "filled"}):
-         side = "ask"
-         price = order.price + offset
-         qty = order.qty
-
-         order.status = "offset"
-         order.offset = self._timestamp()
-
-         #data = { 
-            #"id": "%ID%", "side": side, "price": price, "qty": qty,
-            #"status": "imagined", "imagined": self._timestamp(), "parent": row["id"],
-         #}
-         #sheet.update_cell(row["id"], self.schema[sheet.title]["status"], "offset")
-         #sheet.update_cell(row["id"], self.schema[sheet.title]["offset"], self._timestamp())
-         #self._add(sheet, data)
 

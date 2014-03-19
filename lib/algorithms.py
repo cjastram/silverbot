@@ -56,7 +56,7 @@ class SimpleOffset:
    def place_offsets(self):
       print "--> Placing offsets."
       offset = 0.50
-      self.storage._setConfig("Working", "Offsets")
+      self.get_lock("place-offsets")
       #sheet = self._spreadsheet.worksheet("Book")
       for order in self.storage.query({"status": "filled"}):
          side = "ask"
@@ -73,4 +73,5 @@ class SimpleOffset:
          #sheet.update_cell(row["id"], self.schema[sheet.title]["status"], "offset")
          #sheet.update_cell(row["id"], self.schema[sheet.title]["offset"], self._timestamp())
          #self._add(sheet, data)
+      self.release_lock("place-offsets")
 

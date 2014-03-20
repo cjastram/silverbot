@@ -22,56 +22,56 @@
 #import yaml
 
 class SimpleOffset:
-   storage = None
-   def __init__(self, storage):
-      market_price = 20.71
-      quantity = 20
-      spread = 0.50
-      interval = 0.50
-      pool = 2000.00
-      base = 18.00
+    storage = None
+    def __init__(self, storage):
+        market_price = 20.71
+        quantity = 20
+        spread = 0.50
+        interval = 0.50
+        pool = 2000.00
+        base = 18.00
 
-      self.storage = storage
+        self.storage = storage
 
-      price = base
-      purchase_points = []
-      while price < market_price:
-         purchase_points.append(price)
-         price += interval
+        price = base
+        purchase_points = []
+        while price < market_price:
+            purchase_points.append(price)
+            price += interval
 
-      bids = []
-      while len(purchase_points):
-         order_price = purchase_points.pop()
-         order_quantity = quantity
-         order_amount = price * quantity
-         if order_amount > pool:
-            break
+        bids = []
+        while len(purchase_points):
+            order_price = purchase_points.pop()
+            order_quantity = quantity
+            order_amount = price * quantity
+            if order_amount > pool:
+                break
 
-         bids.append([order_price, order_quantity])
-         pool = pool - order_amount
+            bids.append([order_price, order_quantity])
+            pool = pool - order_amount
 
-      #self.storage.set_hypothetical_bids(bids)
-      self.storage.place_offsets()
+        #self.storage.set_hypothetical_bids(bids)
+        self.place_offsets()
 
-   def place_offsets(self):
-      print "--> Placing offsets."
-      offset = 0.50
-      self.get_lock("place-offsets")
-      #sheet = self._spreadsheet.worksheet("Book")
-      for order in self.storage.query({"status": "filled"}):
-         side = "ask"
-         price = order.price + offset
-         qty = order.qty
+    def place_offsets(self):
+        print "--> Placing offsets."
+        offset = 0.50
+        self.storage.get_lock("place-offsets")
+        #sheet = self._spreadsheet.worksheet("Book")
+        for order in self.storage.query({"status": "filled"}):
+            side = "ask"
+            price = order.price + offset
+            qty = order.qty
 
-         order.status = "offset"
-         order.offset = self.storage._timestamp()
+            order.status = "offset"
+            order.offset = self.storage._timestamp()
 
-         #data = { 
-            #"id": "%ID%", "side": side, "price": price, "qty": qty,
-            #"status": "imagined", "imagined": self._timestamp(), "parent": row["id"],
-         #}
-         #sheet.update_cell(row["id"], self.schema[sheet.title]["status"], "offset")
-         #sheet.update_cell(row["id"], self.schema[sheet.title]["offset"], self._timestamp())
-         #self._add(sheet, data)
-      self.release_lock("place-offsets")
+            #data = { 
+                #"id": "%ID%", "side": side, "price": price, "qty": qty,
+                #"status": "imagined", "imagined": self._timestamp(), "parent": row["id"],
+            #}
+            #sheet.update_cell(row["id"], self.schema[sheet.title]["status"], "offset")
+            #sheet.update_cell(row["id"], self.schema[sheet.title]["offset"], self._timestamp())
+            #self._add(sheet, data)
+        self.storage.release_lock("place-offsets")
 

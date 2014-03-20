@@ -11,10 +11,7 @@ import time
 
 if __name__ == '__main__':
    s = data.Storage()
-   print s.get_lock("offsets")
-   print s.release_lock("offsets")
-   print s.get_lock("offsets")
-   #a = algorithms.SimpleOffset(s)
+   a = algorithms.SimpleOffset(s)
 
    ##app = trader.Wrapper(None)
    #

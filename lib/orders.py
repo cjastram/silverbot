@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 #
 #   SilverBot is a Python application to interact with IB's TWS API.
 #   Copyright (C) 2013 Christopher Jastram <cjastram@gmail.com>

@@ -58,7 +58,7 @@ class SimpleOffset:
         offset = 0.50
         self.storage.get_lock("place-offsets")
         #sheet = self._spreadsheet.worksheet("Book")
-        for order in self.storage.query({"status": "filled"}):
+        for order in self.storage.query_orders({"status": "filled"}):
             side = "ask"
             price = order.price + offset
             qty = order.qty
@@ -74,4 +74,43 @@ class SimpleOffset:
             #sheet.update_cell(row["id"], self.schema[sheet.title]["offset"], self._timestamp())
             #self._add(sheet, data)
         self.storage.release_lock("place-offsets")
+
+
+#    def _confirm_hypothetical(self, side, price, qty):
+#        print "--> Confirming hypothetical %s order for %i at %0.02f." % (side, qty, price)
+#        sheet = self._spreadsheet.worksheet("Book")
+#        data = { 
+#            "id": "%ID%", "side": side, "price": price, "qty": qty,
+#            "status": "imagined", "imagined": self._timestamp()
+#        }
+#        recorded = False
+#        for row in self._select(sheet, "status", "imagined"):
+#            if self._equivalent(row["price"], data["price"]):
+#                recorded = True
+#
+#                ### Check and reset quantity if necessary
+#                if int(row["qty"]) != int(data["qty"]):
+#                    print "--> Updating quantity for order %s from %s to %s." % (row["id"], row["qty"], data["qty"])
+#                    sheet.update_cell(row["id"], self.schema[sheet.title]["qty"], data["qty"])
+#                    
+#                break
+#        if not recorded:
+#            self._add(sheet, data)
+#        
+#    def set_hypothetical_bids(self, bids):
+#        self.get_lock("set-hypothetical-bids")
+#        sheet = self._spreadsheet.worksheet("Book")
+#        for bid in bids:
+#            bid_id = self._confirm_hypothetical("bid", bid[0], bid[1])
+#
+#        for row in self._select(sheet, "status", "imagined"):
+#            desired = False
+#            for bid in bids:
+#                if self._equivalent(bid[0], row["price"]):
+#                    desired = True
+#                    break
+#            if not desired:
+#                sheet.update_cell(row["id"], self.schema[sheet.title]["status"], "Forgotten")
+#        self.release_lock("set-hypothetical-bids")
+
 

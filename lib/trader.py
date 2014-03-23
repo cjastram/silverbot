@@ -30,9 +30,9 @@ def showmessage(message, mapping):
         pass
     items = mapping.items()
     items.sort()
-    print '### %s' % (message, )
+    print('### %s'.format(message))
     for k, v in items:
-        print '    %s:%s' % (k, v)
+        print('    %s:%s'.format(k, v))
 
 #def gen_tick_id():
     #i = randint(100, 10000)
@@ -85,11 +85,11 @@ class Wrapper(EWrapper):
 
         side = ""
         if field == 2:
-            print "a%0.2f " % price
+            print("a%0.2f ".format(price))
         elif field == 1:
-            print "b%0.2f " % price
+            print("b%0.2f ".format(price))
         if side != "":
-            print side, price
+            print(side, price)
 
     def openOrder(self, orderId, contract, order, state):
         orderId = order.m_orderId
@@ -100,11 +100,11 @@ class Wrapper(EWrapper):
         self.orders.add(orderId, symbol, qty, price, action)
         
         order = [orderId, symbol, qty, price, action]
-        print "--> Open order:%s Status:%s Warning:%s" % (order, state.m_status, state.m_warningText)
+        print.format("--> Open order:%s Status:%s Warning:%s".format(order, state.m_status, state.m_warningText))
     
     def error(self, id=None, errorCode=None, errorMsg=None):
         if errorCode == 2104:
-            print "--> %s" % errorMsg
+            print("--> %s".format(errorMsg))
         else:
             showmessage('error', vars())
     
@@ -112,7 +112,7 @@ class Wrapper(EWrapper):
         self.order_ids.append(orderId)
 
     def connectionClosed(self):
-        print "--> Connection closed, exiting..."
+        print("--> Connection closed, exiting...")
         sys.exit(0)
 
     def tickSize(self, tickerId, field, size): pass #showmessage('tickSize', vars())

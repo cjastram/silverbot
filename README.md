@@ -6,9 +6,13 @@ Simplistic IB TWS trading bot with a focus on profiting from market volatility
 Prerequisites
 =============
 
-IbPy - https://code.google.com/p/ibpy/
-GSpread - http://burnash.github.io/gspread/
+Python 3
+
+PyYAML - pip install pyyaml
+GSpread - pip install gspread (http://burnash.github.io/gspread/)
+
 Trader Workstation - Downloadable from InteractiveBrokers
+IbPy - https://code.google.com/p/ibpy/
 
 Usage
 =====

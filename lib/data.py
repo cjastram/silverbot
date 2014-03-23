@@ -110,10 +110,10 @@ class Storage:
                 "Book": [ "id", "side", "price", "qty", "status", "imagined", "requested", "confirmed", "filled", "offset", "cancelled", "parent" ],
             }
 
-            for title, headers in schema.iteritems():
+            for title, headers in iter(schema.items()):
                 self.schema[title] = {}
 
-                print "--> Initializing worksheet: %s" % title
+                print("--> Initializing worksheet: %s".format(title))
 
                 try:
                     worksheet = spreadsheet.worksheet(title)
@@ -134,7 +134,7 @@ class Storage:
                 for heading in worksheet.row_values(1):
                     if not heading is None:
                         if heading in self.schema[title]:
-                            print "Duplicate heading %s in sheet %s, avoid this!" % (heading, title)
+                            print("Duplicate heading %s in sheet %s, avoid this!".format(heading, title))
                         self.schema[title][heading] = col
                     col = col + 1
 
@@ -180,7 +180,7 @@ class Storage:
         id = sheet.row_count + 1
         while count < len(values):
             added = False
-            for key, value in values.iteritems():
+            for key, value in iter(values.items()):
                 if len(flat)+1 == self.schema[sheet.title][key]:
                     if value == "%ID%":
                         value = id
@@ -232,7 +232,7 @@ class Storage:
             raise Exception("Need to implement multi-column selection!")
 
         result = []
-        for key, value in criteria.iteritems():
+        for key, value in iter(criteria.items()):
             column = sheet.col_values(self.schema[sheet.title][key])
             headers = sheet.row_values(1)
             for i in range(1, len(column)):
@@ -264,14 +264,14 @@ class Storage:
                 update[field] = getattr(order, field)
 
         # Update only changed fields
-        for key, value in update.iteritems():
+        for key, value in iterm(update.items()):
             sheet.update_cell(order.id, self.schema["Book"][key], value)
     
     def get_lock(self, lock):
         """Set a lock, returns True if lock was successfully obtained but otherwise False."""
         key = "lock-%s" % lock
         value = self._get_config(key)
-        if not len(value):
+        if value is None or not len(value):
             self._set_config(key, self._timestamp())
             return True
         else:

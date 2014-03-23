@@ -54,7 +54,7 @@ class SimpleOffset:
         self.place_offsets()
 
     def place_offsets(self):
-        print "--> Placing offsets."
+        print("--> Placing offsets.")
         offset = 0.50
         self.storage.get_lock("place-offsets")
         #sheet = self._spreadsheet.worksheet("Book")

@@ -58,7 +58,7 @@ class SimpleOffset:
         offset = 0.50
         self.storage.get_lock("place-offsets")
         #sheet = self._spreadsheet.worksheet("Book")
-        for order in self.storage.query_orders({"status": "filled"}):
+        for order in self.storage.query_orders({"status": "filled", "side": "bid"}):
             side = "ask"
             price = order.price + offset
             qty = order.qty

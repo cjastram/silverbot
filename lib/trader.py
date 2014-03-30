@@ -100,7 +100,7 @@ class Wrapper(EWrapper):
         self.orders.add(orderId, symbol, qty, price, action)
         
         order = [orderId, symbol, qty, price, action]
-        print.format("--> Open order:%s Status:%s Warning:%s".format(order, state.m_status, state.m_warningText))
+        print("--> Open order:%s Status:%s Warning:%s".format(order, state.m_status, state.m_warningText))
     
     def error(self, id=None, errorCode=None, errorMsg=None):
         if errorCode == 2104:

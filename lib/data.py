@@ -26,10 +26,10 @@ _GDOC = None
 class Order(object):
     schema = [ "id", "side", "price", "qty", "status", "imagined", "requested", "confirmed", "filled", "offset", "cancelled", "parent" ]
     def __init__(self, row):
-        self._id = row["id"]
+        self._id = int(row["id"])
         self._side = row["side"]
-        self._price = row["price"]
-        self._qty = row["qty"]
+        self._price = float(row["price"])
+        self._qty = int(row["qty"])
         self._status = row["status"]
         self._imagined = row["imagined"]
         self._requested = row["requested"]
@@ -113,7 +113,7 @@ class Storage:
             for title, headers in iter(schema.items()):
                 self.schema[title] = {}
 
-                print("--> Initializing worksheet: %s".format(title))
+                print("--> Initializing worksheet: {}".format(title))
 
                 try:
                     worksheet = spreadsheet.worksheet(title)
@@ -228,34 +228,46 @@ class Storage:
 
     def query_orders(self, criteria):
         sheet = self._spreadsheet.worksheet("Book")
-        if len(criteria) > 1:
-            raise Exception("Need to implement multi-column selection!")
-
-        result = []
+       
+        # Collect data set in memory, tediously inefficient
+        columns = {}
+        rows = 0
         for key, value in iter(criteria.items()):
             column = sheet.col_values(self.schema[sheet.title][key])
-            headers = sheet.row_values(1)
-            for i in range(1, len(column)):
-                if column[i] == str(value):
-                    row = sheet.row_values(i+1)
-                    block = {}
-                    for i in range(0, len(headers)):
-                        block[headers[i]] = None
-                        if i < len(row):
-                            block[headers[i]] = row[i]
-                    order = Order(block)
-                    result.append(order)
+            header = column.pop(0)
+            columns[header] = column
+            rows = len(column)
+        ids = sheet.col_values(self.schema[sheet.title]["id"])
+        ids.pop(0)
+        # columns = { side: [bid, bid, ask], status: [filled, filled, open] }
+
+        result = []
+        for i in range(1, rows):
+            match = True
+            for key, value in iter(criteria.items()):
+                if columns[key][i] != value:
+                    match = False
+            if match:
+                id = int(ids[i])
+                result.append(self.get_order(id))
         return result
+
+    def get_order(self, id):
+        sheet = self._spreadsheet.worksheet("Book")
+        headers = sheet.row_values(1)
+        row = sheet.row_values(id)
+        block = {}
+        for i in range(0, len(headers)):
+            block[headers[i]] = None
+            if i < len(row):
+                block[headers[i]] = row[i]
+        if id != int(block["id"]):
+            raise Exception("Requested order {} but found order {}!".format(id, block["id"]))
+        return Order(block)
 
     def update(self, order):
         sheet = self._spreadsheet.worksheet("Book")
-
-        # Retrieve old order
-        old = self.query({"id": order.id})
-        if len(old) != 1: 
-            raise Exception("Failed to find single order by ID!")
-        else:
-            old = old[0]
+        old = self.get_order(order.id)
 
         # Compute order delta
         update = {}
@@ -264,7 +276,7 @@ class Storage:
                 update[field] = getattr(order, field)
 
         # Update only changed fields
-        for key, value in iterm(update.items()):
+        for key, value in iter(update.items()):
             sheet.update_cell(order.id, self.schema["Book"][key], value)
     
     def get_lock(self, lock):

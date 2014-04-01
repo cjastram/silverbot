@@ -30,9 +30,9 @@ def showmessage(message, mapping):
         pass
     items = mapping.items()
     items.sort()
-    print('### %s'.format(message))
+    print('### {}'.format(message))
     for k, v in items:
-        print('    %s:%s'.format(k, v))
+        print('    {}:{}'.format(k, v))
 
 #def gen_tick_id():
     #i = randint(100, 10000)
@@ -47,11 +47,15 @@ class Wrapper(EWrapper):
     parameters = None
     connection = None
 
-    def __init__(self, parameters):
+    _storage = None
+
+    def __init__(self, storage):
         # Variable initialization
         #self.orders = orders.OrderBook()
         #self.price_log = data.PriceLog()
         #self.parameters = parameters
+
+        self._storage = storage
         
         self.connection = EClientSocket(self)
         self.connection.eConnect('localhost', 7496, 0) # host, port, clientId
@@ -72,8 +76,6 @@ class Wrapper(EWrapper):
         return contract
 
     def tickPrice(self, tickerId, field, price, canAutoExecute):
-        #showmessage('tickPrice', vars())
-        
         # 1 = bid
         # 2 = ask
         # 4 = last
@@ -85,9 +87,9 @@ class Wrapper(EWrapper):
 
         side = ""
         if field == 2:
-            print("a%0.2f ".format(price))
+            self._storage.log_price("ask", price)
         elif field == 1:
-            print("b%0.2f ".format(price))
+            self._storage.log_price("bid", price)
         if side != "":
             print(side, price)
 
@@ -100,11 +102,13 @@ class Wrapper(EWrapper):
         self.orders.add(orderId, symbol, qty, price, action)
         
         order = [orderId, symbol, qty, price, action]
-        print("--> Open order:%s Status:%s Warning:%s".format(order, state.m_status, state.m_warningText))
+        print("--> Open order:{} Status:{} Warning:{}".format(order, state.m_status, state.m_warningText))
     
     def error(self, id=None, errorCode=None, errorMsg=None):
         if errorCode == 2104:
-            print("--> %s".format(errorMsg))
+            print("--> {}".format(errorMsg))
+        elif errorCode == 502:
+            raise Exception(errorMsg)
         else:
             showmessage('error', vars())
     
@@ -112,8 +116,13 @@ class Wrapper(EWrapper):
         self.order_ids.append(orderId)
 
     def connectionClosed(self):
+        """ Something broke, connection lost. """
         print("--> Connection closed, exiting...")
         sys.exit(0)
+
+    def connected(self):
+        """ Returns True of connected to TraderWorkstation, otherwise False. """
+        return self.connection.m_connected
 
     def tickSize(self, tickerId, field, size): pass #showmessage('tickSize', vars())
     def tickGeneric(self, tickerId, tickType, value): pass #showmessage('tickGeneric', vars()) 

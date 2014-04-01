@@ -108,6 +108,7 @@ class Storage:
                     #"AskID", "AskDate", "AskQty", "AskPrice", "AskStatus"],
                 "Config": [ "setting", "value" ],
                 "Book": [ "id", "side", "price", "qty", "status", "imagined", "requested", "confirmed", "filled", "offset", "cancelled", "parent" ],
+                "PriceLog": [ "date", "side", "price" ],
             }
 
             for title, headers in iter(schema.items()):
@@ -264,6 +265,12 @@ class Storage:
         if id != int(block["id"]):
             raise Exception("Requested order {} but found order {}!".format(id, block["id"]))
         return Order(block)
+    
+    def log_price(self, side, price):
+        sheet = self._spreadsheet.worksheet("PriceLog")
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        row = [timestamp, side, price]
+        sheet.append_row(row)
 
     def update(self, order):
         sheet = self._spreadsheet.worksheet("Book")

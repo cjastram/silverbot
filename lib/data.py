@@ -196,7 +196,11 @@ class Storage:
         #for key, value in values.iteritems():
         #   sheet.update_cell(row, self.schema[sheet_name][key], value)
 
-    def _get_config(self, key, default=None):
+    # -- PUBLIC METHODS ---------------------------------------------------- #
+
+    def get_config(self, key, default=None):
+        """ Safely retrieve a configuration option.
+            If not existing, return default (or None). """
         sheet = self._spreadsheet.worksheet("Config")
         index = None
         try:
@@ -212,7 +216,8 @@ class Storage:
             index = keys.index(key) + 1
         return sheet.cell(index, 2).value
     
-    def _set_config(self, key, value):
+    def set_config(self, key, value):
+        """ Safely set a configuration value. """
         sheet = self._spreadsheet.worksheet("Config")
         index = None
         try:
@@ -224,8 +229,6 @@ class Storage:
             sheet.append_row([key, value])
             keys = sheet.col_values(1)
             index = keys.index(key) + 1
-
-    # -- PUBLIC METHODS ---------------------------------------------------- #
 
     def query_orders(self, criteria):
         sheet = self._spreadsheet.worksheet("Book")
@@ -267,6 +270,7 @@ class Storage:
         return Order(block)
     
     def log_price(self, side, price):
+        """ Store a market price point. """
         sheet = self._spreadsheet.worksheet("PriceLog")
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         row = [timestamp, side, price]
@@ -289,9 +293,9 @@ class Storage:
     def get_lock(self, lock):
         """Set a lock, returns True if lock was successfully obtained but otherwise False."""
         key = "lock-%s" % lock
-        value = self._get_config(key)
+        value = self.get_config(key)
         if value is None or not len(value):
-            self._set_config(key, self._timestamp())
+            self.set_config(key, self._timestamp())
             return True
         else:
             return False
@@ -299,5 +303,5 @@ class Storage:
     def release_lock(self, lock):
         """Release a lock once you are finished."""
         key = "lock-%s" % lock
-        self._set_config(key, "")
+        self.set_config(key, "")
 
